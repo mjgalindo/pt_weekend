@@ -26,6 +26,10 @@ func (v Vec3) Z() float32 {
 	return v.e[2]
 }
 
+func (v Vec3) XYZ() (float32, float32, float32) {
+	return v.e[0], v.e[1], v.e[2]
+}
+
 func (v Vec3) R() float32 {
 	return v.e[0]
 }
@@ -38,20 +42,36 @@ func (v Vec3) B() float32 {
 	return v.e[2]
 }
 
+func (v Vec3) RGB() (float32, float32, float32) {
+	return v.e[0], v.e[1], v.e[2]
+}
+
 func (v Vec3) Neg() Vec3 {
 	return Vec3{e: [3]float32{-v.e[0], -v.e[1], -v.e[2]}}
 }
 
-func Sum(a, b Vec3) Vec3 {
-	return Vec3{e: [3]float32{a.e[0] + b.e[0], a.e[1] + b.e[1], a.e[2] + b.e[2]}}
+func Sum(a Vec3, bs ...Vec3) Vec3 {
+	x, y, z := a.XYZ()
+	for _, b := range bs {
+		x, y, z = x+b.X(), y+b.Y(), z+b.Z()
+	}
+	return Vec3{e: [3]float32{x, y, z}}
 }
 
-func Sub(a, b Vec3) Vec3 {
-	return Vec3{e: [3]float32{a.e[0] - b.e[0], a.e[1] - b.e[1], a.e[2] - b.e[2]}}
+func Sub(a Vec3, bs ...Vec3) Vec3 {
+	x, y, z := a.XYZ()
+	for _, b := range bs {
+		x, y, z = x-b.X(), y-b.Y(), z-b.Z()
+	}
+	return Vec3{e: [3]float32{x, y, z}}
 }
 
-func Mul(a, b Vec3) Vec3 {
-	return Vec3{e: [3]float32{a.e[0] * b.e[0], a.e[1] * b.e[1], a.e[2] * b.e[2]}}
+func Mul(a Vec3, bs ...Vec3) Vec3 {
+	x, y, z := a.XYZ()
+	for _, b := range bs {
+		x, y, z = x*b.X(), y*b.Y(), z*b.Z()
+	}
+	return Vec3{e: [3]float32{x, y, z}}
 }
 
 func Div(a, b Vec3) Vec3 {
