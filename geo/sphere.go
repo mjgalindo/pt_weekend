@@ -8,15 +8,22 @@ import (
 )
 
 type Sphere struct {
-	Position vec.Vec3
-	Radius   float32
+	Position   vec.Vec3
+	Radius     float32
+	ScatterFun func(rIn ray.Ray, rec HitRecord) (absorbed bool, attenuation vec.Vec3, scattered ray.Ray)
 }
 
-func (s Sphere) Hit(r ray.Ray, tMin, tMax float32, rec *HitResult) bool {
+func MakeSphere(position vec.Vec3, radius float32,
+	scatterFun func(rIn ray.Ray, rec HitRecord) (absorbed bool, attenuation vec.Vec3, scattered ray.Ray)) Sphere {
+	return Sphere{Position: position, Radius: radius, ScatterFun: scatterFun}
+}
+
+func (s Sphere) Hit(r ray.Ray, tMin, tMax float32, rec *HitRecord) bool {
 	oc := vec.Sub(r.Origin, s.Position)
 	a := vec.Dot(r.Direction, r.Direction)
 	b := vec.Dot(oc, r.Direction)
 	c := vec.Dot(oc, oc) - s.Radius*s.Radius
+	rec.Scatter = s.ScatterFun
 	discriminant := b*b - a*c
 	if discriminant > 0 {
 		temp := (-b - float32(math.Sqrt(float64(b*b-a*c)))) / a

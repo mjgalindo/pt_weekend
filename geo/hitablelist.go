@@ -14,8 +14,8 @@ func MakeList(hitables ...Hitable) HitableList {
 	return HitableList{hitables}
 }
 
-func (hl HitableList) Hit(r ray.Ray, tMin, tMax float32, rec *HitResult) bool {
-	hrec := HitResult{}
+func (hl HitableList) Hit(r ray.Ray, tMin, tMax float32, rec *HitRecord) bool {
+	hrec := HitRecord{}
 	hasHit := false
 	closest := tMax
 	for _, hitable := range hl.Hitables {

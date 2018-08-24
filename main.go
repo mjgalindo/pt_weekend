@@ -8,31 +8,27 @@ import (
 
 	"github.com/mjgalindo/pt_weekend/cam"
 	"github.com/mjgalindo/pt_weekend/geo"
+	"github.com/mjgalindo/pt_weekend/mat"
 	"github.com/mjgalindo/pt_weekend/ray"
 	"github.com/mjgalindo/pt_weekend/vec"
 )
 
-func color(r ray.Ray, world geo.Hitable) vec.Vec3 {
-	var rec geo.HitResult
+func color(r ray.Ray, world geo.Hitable, depth int) vec.Vec3 {
+	var rec geo.HitRecord
 	if world.Hit(r, 0.001, math.MaxFloat32, &rec) {
-		target := vec.Sum(rec.P, rec.Normal, randomInUnitSphere())
-		return vec.MulSingle(color(ray.Make(rec.P, vec.Sub(target, rec.P)), world), 0.5)
+		if depth < 50 {
+			absorbed, attenuation, scattered := rec.Scatter(r, rec)
+			if !absorbed {
+				return vec.Mul(attenuation, color(scattered, world, depth+1))
+			} else {
+				return vec.Make(0, 0, 0)
+			}
+		}
 	}
 	unitDir := r.Direction.MakeUnit()
 	t := 0.5 * (unitDir.Y() + 1.0)
 	return vec.Sum(vec.MulSingle(vec.Make(1.0, 1.0, 1.0), 1.0-t),
 		vec.MulSingle(vec.Make(0.5, 0.7, 1.0), t))
-}
-
-func randomInUnitSphere() vec.Vec3 {
-	var p vec.Vec3
-	for ok := true; ok; ok = p.SquaredLength() >= 1.0 {
-		p = vec.Sub(
-			vec.MulSingle(
-				vec.Make(rand.Float32(), rand.Float32(), rand.Float32()),
-				2.0), vec.Make(1, 1, 1))
-	}
-	return p
 }
 
 func main() {
@@ -45,16 +41,18 @@ func main() {
 		panic(err)
 	}
 	defer f.Close()
-	width := 200
-	height := 100
+	width := 400
+	height := 200
 
 	// Setup the scene
 	world := geo.MakeList(
-		geo.Sphere{Position: vec.Make(0, 0, -1), Radius: 0.5},
-		geo.Sphere{Position: vec.Make(0, -100.5, -1), Radius: 100})
+		geo.MakeSphere(vec.Make(0, 0, -1), 0.5, mat.Lambertian(vec.Make(0.8, 0.3, 0.3))),
+		geo.MakeSphere(vec.Make(0, -100.5, -1), 100, mat.Lambertian(vec.Make(0.8, 0.8, 0.0))),
+		geo.MakeSphere(vec.Make(1, 0, -1), 0.5, mat.Metal(vec.Make(0.8, 0.6, 0.2), 0.3)),
+		geo.MakeSphere(vec.Make(-1, 0, -1), 0.5, mat.Metal(vec.Make(0.8, 0.8, 0.8), 1.0)))
 
 	camera := cam.Default()
-	nSamples := 16
+	nSamples := 64
 
 	fmt.Fprintf(f, "P3\n%d %d\n255\n", width, height)
 	for y := height - 1; y >= 0; y-- {
@@ -64,7 +62,7 @@ func main() {
 				u := (float32(x) + rand.Float32()) / float32(width)
 				v := (float32(y) + rand.Float32()) / float32(height)
 				ray := camera.GetRay(u, v)
-				col = vec.Sum(col, color(ray, world))
+				col = vec.Sum(col, color(ray, world, 0))
 			}
 			col = vec.DivSingle(col, float32(nSamples))
 			col = vec.Make(float32(math.Sqrt(float64(col.X()))),

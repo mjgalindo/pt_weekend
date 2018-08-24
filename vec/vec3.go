@@ -117,6 +117,10 @@ func Cross(a, b Vec3) Vec3 {
 		a.e[0]*b.e[1] - a.e[1]*b.e[0]}}
 }
 
+func Reflect(v, n Vec3) Vec3 {
+	return Sub(v, MulSingle(n, 2*Dot(v, n)))
+}
+
 func (v Vec3) String() string {
 	return fmt.Sprintf("%.5f %.5f %.5f", v.e[0], v.e[1], v.e[2])
 }
