@@ -14,3 +14,7 @@ func Make(p, d vec.Vec3) Ray {
 func MakeUnit(p, d vec.Vec3) Ray {
 	return Ray{Origin: p, Direction: d.MakeUnit()}
 }
+
+func (r Ray) PointAt(t float32) vec.Vec3 {
+	return vec.Sum(r.Origin, vec.MulSingle(r.Direction, t))
+}
