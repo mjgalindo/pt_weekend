@@ -14,15 +14,25 @@ import (
 
 func color(r ray.Ray, world geo.Hitable) vec.Vec3 {
 	var rec geo.HitResult
-	if world.Hit(r, 0.0, math.MaxFloat32, &rec) {
-		rec.Normal = rec.Normal.MakeUnit()
-		return vec.MulSingle(
-			vec.Make(rec.Normal.X()+1, rec.Normal.Y()+1, rec.Normal.Z()+1), 0.5)
+	if world.Hit(r, 0.001, math.MaxFloat32, &rec) {
+		target := vec.Sum(rec.P, rec.Normal, randomInUnitSphere())
+		return vec.MulSingle(color(ray.Make(rec.P, vec.Sub(target, rec.P)), world), 0.5)
 	}
 	unitDir := r.Direction.MakeUnit()
 	t := 0.5 * (unitDir.Y() + 1.0)
 	return vec.Sum(vec.MulSingle(vec.Make(1.0, 1.0, 1.0), 1.0-t),
 		vec.MulSingle(vec.Make(0.5, 0.7, 1.0), t))
+}
+
+func randomInUnitSphere() vec.Vec3 {
+	var p vec.Vec3
+	for ok := true; ok; ok = p.SquaredLength() >= 1.0 {
+		p = vec.Sub(
+			vec.MulSingle(
+				vec.Make(rand.Float32(), rand.Float32(), rand.Float32()),
+				2.0), vec.Make(1, 1, 1))
+	}
+	return p
 }
 
 func main() {
@@ -35,8 +45,8 @@ func main() {
 		panic(err)
 	}
 	defer f.Close()
-	width := 400
-	height := 200
+	width := 200
+	height := 100
 
 	// Setup the scene
 	world := geo.MakeList(
@@ -44,7 +54,7 @@ func main() {
 		geo.Sphere{Position: vec.Make(0, -100.5, -1), Radius: 100})
 
 	camera := cam.Default()
-	nSamples := 8
+	nSamples := 16
 
 	fmt.Fprintf(f, "P3\n%d %d\n255\n", width, height)
 	for y := height - 1; y >= 0; y-- {
@@ -57,6 +67,9 @@ func main() {
 				col = vec.Sum(col, color(ray, world))
 			}
 			col = vec.DivSingle(col, float32(nSamples))
+			col = vec.Make(float32(math.Sqrt(float64(col.X()))),
+				float32(math.Sqrt(float64(col.Y()))),
+				float32(math.Sqrt(float64(col.Z()))))
 			ir := int(255.99 * col.R())
 			ig := int(255.99 * col.G())
 			ib := int(255.99 * col.B())
