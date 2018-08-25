@@ -5,7 +5,8 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"sync"
+
+	"gopkg.in/cheggaaa/pb.v1"
 
 	"github.com/mjgalindo/pt_weekend/cam"
 	"github.com/mjgalindo/pt_weekend/geo"
@@ -21,9 +22,8 @@ func color(r ray.Ray, world geo.Hitable, depth int) vec.Vec3 {
 			absorbed, attenuation, scattered := rec.Scatter(r, rec)
 			if !absorbed {
 				return vec.Mul(attenuation, color(scattered, world, depth+1))
-			} else {
-				return vec.Make(0, 0, 0)
 			}
+			return vec.Make(0, 0, 0)
 		}
 	}
 	unitDir := r.Direction.MakeUnit()
@@ -54,46 +54,65 @@ func main() {
 		fmt.Println("Need a file parameter")
 		os.Exit(1)
 	}
-	width := 1920
-	height := 1080
+	width := 800
+	height := 400
 
 	// Setup the scene
 	world := randomScene()
 	lookFrom := vec.Make(3, 2, 1)
 	lookAt := vec.Make(0, 0, -1)
 	distToFocus := vec.Sub(lookFrom, lookAt).Length()
-	aperture := float32(2.0)
+	aperture := float32(0.25)
 	camera := cam.Make(lookFrom, lookAt, vec.Make(0, 1, 0),
 		90, float32(width)/float32(height), aperture, distToFocus)
-	nSamples := 512
+	nSamples := 64
 	image := make([][]vec.Vec3, height)
 	for i := range image {
 		image[i] = make([]vec.Vec3, width)
 	}
 
-	renderRow := func(row int, wg *sync.WaitGroup) {
-		defer wg.Done()
-		for x := 0; x < width; x++ {
-			image[row][x] = vec.Make(0, 0, 0)
-			for s := 0; s < nSamples; s++ {
-				u := (float32(x) + rand.Float32()) / float32(width)
-				v := (float32(row) + rand.Float32()) / float32(height)
-				ray := camera.GetRay(u, v)
-				image[row][x] = vec.Sum(image[row][x], color(ray, world, 0))
+	renderWorker := func(workQueue chan int, finish chan bool) {
+		mustEnd := false
+		for !mustEnd {
+			select {
+			case row := <-workQueue:
+				for x := 0; x < width; x++ {
+					image[row][x] = vec.Make(0, 0, 0)
+					for s := 0; s < nSamples; s++ {
+						u := (float32(x) + rand.Float32()) / float32(width)
+						v := (float32(row) + rand.Float32()) / float32(height)
+						ray := camera.GetRay(u, v)
+						image[row][x] = vec.Sum(image[row][x], color(ray, world, 0))
+					}
+					image[row][x] = vec.DivSingle(image[row][x], float32(nSamples))
+					image[row][x] = vec.Make(float32(math.Sqrt(float64(image[row][x].X()))),
+						float32(math.Sqrt(float64(image[row][x].Y()))),
+						float32(math.Sqrt(float64(image[row][x].Z()))))
+				}
+			case <-finish:
+				mustEnd = true
 			}
-			image[row][x] = vec.DivSingle(image[row][x], float32(nSamples))
-			image[row][x] = vec.Make(float32(math.Sqrt(float64(image[row][x].X()))),
-				float32(math.Sqrt(float64(image[row][x].Y()))),
-				float32(math.Sqrt(float64(image[row][x].Z()))))
 		}
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(height)
-	for y := height - 1; y >= 0; y-- {
-		go renderRow(y, &wg)
+	workQueue := make(chan int)
+	finish := make(chan bool)
+	nWorkers := 8
+	for i := 0; i < nWorkers; i++ {
+		go renderWorker(workQueue, finish)
 	}
-	wg.Wait()
+	bar := pb.StartNew(height)
+	defer bar.FinishPrint("Done!")
+	for y := height - 1; y >= 0; y-- {
+		select {
+		case workQueue <- y:
+			bar.Increment()
+		}
+	}
+	for i := 0; i < nWorkers; i++ {
+		finish <- true
+	}
+
 	Save(&image, os.Args[1])
 }
 
