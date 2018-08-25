@@ -41,15 +41,15 @@ func main() {
 		panic(err)
 	}
 	defer f.Close()
-	width := 400
-	height := 200
+	width := 500 / 2
+	height := 250 / 2
 
 	// Setup the scene
 	world := geo.MakeList(
-		geo.MakeSphere(vec.Make(0, 0, -1), 0.5, mat.Lambertian(vec.Make(0.8, 0.3, 0.3))),
+		geo.MakeSphere(vec.Make(0, 0, -1), 0.5, mat.Lambertian(vec.Make(0.1, 0.2, 0.5))),
 		geo.MakeSphere(vec.Make(0, -100.5, -1), 100, mat.Lambertian(vec.Make(0.8, 0.8, 0.0))),
-		geo.MakeSphere(vec.Make(1, 0, -1), 0.5, mat.Metal(vec.Make(0.8, 0.6, 0.2), 0.3)),
-		geo.MakeSphere(vec.Make(-1, 0, -1), 0.5, mat.Metal(vec.Make(0.8, 0.8, 0.8), 1.0)))
+		geo.MakeSphere(vec.Make(1, 0, -1), 0.5, mat.Mirror(vec.Make(0.8, 0.6, 0.2))),
+		geo.MakeSphere(vec.Make(-1, 0, -1), 0.5, mat.Dielectric(1.5)))
 
 	camera := cam.Default()
 	nSamples := 64

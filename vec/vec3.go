@@ -121,6 +121,17 @@ func Reflect(v, n Vec3) Vec3 {
 	return Sub(v, MulSingle(n, 2*Dot(v, n)))
 }
 
+func Refract(v, n Vec3, niOverNt float32) (refracted *Vec3) {
+	uv := v.MakeUnit()
+	dt := Dot(uv, n)
+	discriminant := 1.0 - niOverNt*niOverNt*(1-dt*dt)
+	if discriminant > 0 {
+		tmp := Sub(MulSingle(Sub(uv, MulSingle(n, dt)), niOverNt), MulSingle(n, float32(math.Sqrt(float64(discriminant)))))
+		refracted = &tmp
+	}
+	return
+}
+
 func (v Vec3) String() string {
 	return fmt.Sprintf("%.5f %.5f %.5f", v.e[0], v.e[1], v.e[2])
 }
