@@ -48,14 +48,9 @@ func Save(image *[][]vec.Vec3, name string) {
 		}
 	}
 }
-
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Need a file parameter")
-		os.Exit(1)
-	}
-	width := 800
-	height := 400
+func renderScene(outfile string) {
+	width := 800 / 2
+	height := 400 / 2
 
 	// Setup the scene
 	world := randomScene()
@@ -113,7 +108,14 @@ func main() {
 		finish <- true
 	}
 
-	Save(&image, os.Args[1])
+	Save(&image, outfile)
+}
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Need a file parameter")
+		os.Exit(1)
+	}
+	renderScene(os.Args[1])
 }
 
 func randomScene() *geo.HitableList {
