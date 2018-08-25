@@ -51,7 +51,12 @@ func main() {
 		geo.MakeSphere(vec.Make(1, 0, -1), 0.5, mat.Mirror(vec.Make(0.8, 0.6, 0.2))),
 		geo.MakeSphere(vec.Make(-1, 0, -1), 0.5, mat.Dielectric(1.5)))
 
-	camera := cam.Default()
+	// R := float32(math.Cos(math.Pi / 4.0))
+	//world = geo.MakeList(
+	//	geo.MakeSphere(vec.Make(-R, 0, -1), R, mat.Lambertian(vec.Make(0, 0, 1))),
+	//	geo.MakeSphere(vec.Make(R, 0, -1), R, mat.Lambertian(vec.Make(1, 0, 0))))
+
+	camera := cam.Make(vec.Make(-2, 2, 1), vec.Make(0, 0, -1), vec.Make(0, 1, 0), 40, float32(width)/float32(height))
 	nSamples := 64
 
 	fmt.Fprintf(f, "P3\n%d %d\n255\n", width, height)
