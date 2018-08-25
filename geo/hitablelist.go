@@ -6,7 +6,7 @@ type HitableList struct {
 	Hitables []Hitable
 }
 
-func (hl HitableList) Add(hs ...Hitable) {
+func (hl *HitableList) Add(hs ...Hitable) {
 	hl.Hitables = append(hl.Hitables, hs...)
 }
 

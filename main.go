@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"sync"
 
 	"github.com/mjgalindo/pt_weekend/cam"
 	"github.com/mjgalindo/pt_weekend/geo"
@@ -31,52 +32,93 @@ func color(r ray.Ray, world geo.Hitable, depth int) vec.Vec3 {
 		vec.MulSingle(vec.Make(0.5, 0.7, 1.0), t))
 }
 
+func Save(image *[][]vec.Vec3, name string) {
+	f, err := os.Create(name)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "P3\n%d %d\n255\n", len((*image)[0]), len(*image))
+	for y := len(*image) - 1; y >= 0; y-- {
+		for x := range (*image)[y] {
+			ir := int(255.99 * (*image)[y][x].R())
+			ig := int(255.99 * (*image)[y][x].G())
+			ib := int(255.99 * (*image)[y][x].B())
+			fmt.Fprintf(f, "%d %d %d\n", ir, ig, ib)
+		}
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Need a file parameter")
 		os.Exit(1)
 	}
-	f, err := os.Create(os.Args[1])
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	width := 500 / 2
-	height := 250 / 2
+	width := 1920
+	height := 1080
 
 	// Setup the scene
-	world := geo.MakeList(
-		geo.MakeSphere(vec.Make(0, 0, -1), 0.5, mat.Lambertian(vec.Make(0.1, 0.2, 0.5))),
-		geo.MakeSphere(vec.Make(0, -100.5, -1), 100, mat.Lambertian(vec.Make(0.8, 0.8, 0.0))),
-		geo.MakeSphere(vec.Make(1, 0, -1), 0.5, mat.Mirror(vec.Make(0.8, 0.6, 0.2))),
-		geo.MakeSphere(vec.Make(-1, 0, -1), 0.5, mat.Dielectric(1.5)))
+	world := randomScene()
+	lookFrom := vec.Make(3, 2, 1)
+	lookAt := vec.Make(0, 0, -1)
+	distToFocus := vec.Sub(lookFrom, lookAt).Length()
+	aperture := float32(2.0)
+	camera := cam.Make(lookFrom, lookAt, vec.Make(0, 1, 0),
+		90, float32(width)/float32(height), aperture, distToFocus)
+	nSamples := 512
+	image := make([][]vec.Vec3, height)
+	for i := range image {
+		image[i] = make([]vec.Vec3, width)
+	}
 
-	// R := float32(math.Cos(math.Pi / 4.0))
-	//world = geo.MakeList(
-	//	geo.MakeSphere(vec.Make(-R, 0, -1), R, mat.Lambertian(vec.Make(0, 0, 1))),
-	//	geo.MakeSphere(vec.Make(R, 0, -1), R, mat.Lambertian(vec.Make(1, 0, 0))))
-
-	camera := cam.Make(vec.Make(-2, 2, 1), vec.Make(0, 0, -1), vec.Make(0, 1, 0), 40, float32(width)/float32(height))
-	nSamples := 64
-
-	fmt.Fprintf(f, "P3\n%d %d\n255\n", width, height)
-	for y := height - 1; y >= 0; y-- {
+	renderRow := func(row int, wg *sync.WaitGroup) {
+		defer wg.Done()
 		for x := 0; x < width; x++ {
-			col := vec.Make(0, 0, 0)
+			image[row][x] = vec.Make(0, 0, 0)
 			for s := 0; s < nSamples; s++ {
 				u := (float32(x) + rand.Float32()) / float32(width)
-				v := (float32(y) + rand.Float32()) / float32(height)
+				v := (float32(row) + rand.Float32()) / float32(height)
 				ray := camera.GetRay(u, v)
-				col = vec.Sum(col, color(ray, world, 0))
+				image[row][x] = vec.Sum(image[row][x], color(ray, world, 0))
 			}
-			col = vec.DivSingle(col, float32(nSamples))
-			col = vec.Make(float32(math.Sqrt(float64(col.X()))),
-				float32(math.Sqrt(float64(col.Y()))),
-				float32(math.Sqrt(float64(col.Z()))))
-			ir := int(255.99 * col.R())
-			ig := int(255.99 * col.G())
-			ib := int(255.99 * col.B())
-			fmt.Fprintf(f, "%d %d %d\n", ir, ig, ib)
+			image[row][x] = vec.DivSingle(image[row][x], float32(nSamples))
+			image[row][x] = vec.Make(float32(math.Sqrt(float64(image[row][x].X()))),
+				float32(math.Sqrt(float64(image[row][x].Y()))),
+				float32(math.Sqrt(float64(image[row][x].Z()))))
 		}
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(height)
+	for y := height - 1; y >= 0; y-- {
+		go renderRow(y, &wg)
+	}
+	wg.Wait()
+	Save(&image, os.Args[1])
+}
+
+func randomScene() *geo.HitableList {
+	list := geo.MakeList()
+	list.Add(geo.MakeSphere(vec.Make(0, -1000, 0), 1000, mat.Lambertian(vec.Make(0.5, 0.5, 0.5))))
+	for a := -11; a < 11; a++ {
+		for b := -11; b < 11; b++ {
+			chooseMat := rand.Float32()
+			center := vec.Make(float32(a)+0.9*rand.Float32(), 0.2, float32(b)+0.9*rand.Float32())
+			if vec.Sub(center, vec.Make(4, 0.2, 0)).Length() > 0.9 {
+				if chooseMat < 0.8 { // Diffuse
+					albedo := vec.Make(rand.Float32()*rand.Float32(), rand.Float32()*rand.Float32(), rand.Float32()*rand.Float32())
+					list.Add(geo.MakeSphere(center, 0.2, mat.Lambertian(albedo)))
+				} else if chooseMat < 0.95 { // Metal
+					metalFun := mat.Metal(vec.Make(0.5*(1+rand.Float32()), 0.5*(1+rand.Float32()), 0.5*(1+rand.Float32())), 0.5*rand.Float32())
+					list.Add(geo.MakeSphere(center, 0.2, metalFun))
+				} else { // Glass
+					list.Add(geo.MakeSphere(center, 0.2, mat.Dielectric(1.5)))
+				}
+			}
+		}
+	}
+	list.Add(geo.MakeSphere(vec.Make(0, 1, 0), 1.0, mat.Dielectric(1.5)))
+	list.Add(geo.MakeSphere(vec.Make(-2, 1, 0), 1.0, mat.Lambertian(vec.Make(0.4, 0.2, 0.1))))
+	list.Add(geo.MakeSphere(vec.Make(2, 1, 0), 1.0, mat.Metal(vec.Make(0.7, 0.6, 0.5), 0.0)))
+	return &list
 }
