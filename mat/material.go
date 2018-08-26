@@ -14,7 +14,7 @@ type ScatterFun func(rIn ray.Ray, rec geo.HitRecord) (absorbed bool, attenuation
 func Lambertian(albedo vec.Vec3) ScatterFun {
 	return func(rIn ray.Ray, rec geo.HitRecord) (absorbed bool, attenuation vec.Vec3, scattered ray.Ray) {
 		target := vec.Sum(rec.P, rec.Normal, vec.RandomInUnitSphere())
-		scattered = ray.Make(rec.P, vec.Sub(target, rec.P))
+		scattered = ray.Make(rec.P, vec.Sub(target, rec.P), rIn.Time)
 		attenuation = albedo
 		absorbed = false
 		return
@@ -24,7 +24,7 @@ func Lambertian(albedo vec.Vec3) ScatterFun {
 func Mirror(albedo vec.Vec3) ScatterFun {
 	return func(rIn ray.Ray, rec geo.HitRecord) (absorbed bool, attenuation vec.Vec3, scattered ray.Ray) {
 		reflected := vec.Reflect(rIn.Direction.MakeUnit(), rec.Normal)
-		scattered = ray.Make(rec.P, reflected)
+		scattered = ray.Make(rec.P, reflected, rIn.Time)
 		attenuation = albedo
 		absorbed = vec.Dot(scattered.Direction, rec.Normal) <= 0
 		return
@@ -34,7 +34,7 @@ func Mirror(albedo vec.Vec3) ScatterFun {
 func Metal(albedo vec.Vec3, fuzz float32) ScatterFun {
 	return func(rIn ray.Ray, rec geo.HitRecord) (absorbed bool, attenuation vec.Vec3, scattered ray.Ray) {
 		reflected := vec.Reflect(rIn.Direction.MakeUnit(), rec.Normal)
-		scattered = ray.Make(rec.P, vec.Sum(reflected, vec.MulSingle(vec.RandomInUnitSphere(), fuzz)))
+		scattered = ray.Make(rec.P, vec.Sum(reflected, vec.MulSingle(vec.RandomInUnitSphere(), fuzz)), rIn.Time)
 		attenuation = albedo
 		absorbed = vec.Dot(scattered.Direction, rec.Normal) <= 0
 		return
@@ -66,15 +66,15 @@ func Dielectric(refIndex float32) ScatterFun {
 		}
 		if refracted = vec.Refract(rIn.Direction, outwardNormal, niOverNt); refracted != nil {
 			reflectProb = schlick(cosine, refIndex)
-			scattered = ray.Make(rec.P, *refracted)
+			scattered = ray.Make(rec.P, *refracted, rIn.Time)
 		} else {
-			scattered = ray.Make(rec.P, reflected)
+			scattered = ray.Make(rec.P, reflected, rIn.Time)
 			reflectProb = 1.0
 		}
 		if rand.Float32() < reflectProb {
-			scattered = ray.Make(rec.P, reflected)
+			scattered = ray.Make(rec.P, reflected, rIn.Time)
 		} else {
-			scattered = ray.Make(rec.P, *refracted)
+			scattered = ray.Make(rec.P, *refracted, rIn.Time)
 		}
 		absorbed = false
 		return

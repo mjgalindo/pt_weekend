@@ -49,17 +49,17 @@ func Save(image *[][]vec.Vec3, name string) {
 	}
 }
 func renderScene(outfile string) {
-	width := 800 / 2
-	height := 400 / 2
+	width := 800 / 4
+	height := 400 / 4
 
 	// Setup the scene
 	world := randomScene()
-	lookFrom := vec.Make(3, 2, 1)
-	lookAt := vec.Make(0, 0, -1)
-	distToFocus := vec.Sub(lookFrom, lookAt).Length()
-	aperture := float32(0.25)
+	lookFrom := vec.Make(13, 2, 3)
+	lookAt := vec.Make(0, 0, 0)
+	distToFocus := float32(10.0)
+	aperture := float32(0.0)
 	camera := cam.Make(lookFrom, lookAt, vec.Make(0, 1, 0),
-		90, float32(width)/float32(height), aperture, distToFocus)
+		20, float32(width)/float32(height), aperture, distToFocus, 0.0, 1.0)
 	nSamples := 64
 	image := make([][]vec.Vec3, height)
 	for i := range image {
@@ -121,14 +121,14 @@ func main() {
 func randomScene() *geo.HitableList {
 	list := geo.MakeList()
 	list.Add(geo.MakeSphere(vec.Make(0, -1000, 0), 1000, mat.Lambertian(vec.Make(0.5, 0.5, 0.5))))
-	for a := -11; a < 11; a++ {
-		for b := -11; b < 11; b++ {
+	for a := -10; a < 10; a++ {
+		for b := -10; b < 10; b++ {
 			chooseMat := rand.Float32()
 			center := vec.Make(float32(a)+0.9*rand.Float32(), 0.2, float32(b)+0.9*rand.Float32())
 			if vec.Sub(center, vec.Make(4, 0.2, 0)).Length() > 0.9 {
 				if chooseMat < 0.8 { // Diffuse
 					albedo := vec.Make(rand.Float32()*rand.Float32(), rand.Float32()*rand.Float32(), rand.Float32()*rand.Float32())
-					list.Add(geo.MakeSphere(center, 0.2, mat.Lambertian(albedo)))
+					list.Add(geo.MakeMovingSphere(center, vec.Sum(center, vec.Make(0, 0.5*rand.Float32(), 0)), 0.2, 0.0, 1.0, mat.Lambertian(albedo)))
 				} else if chooseMat < 0.95 { // Metal
 					metalFun := mat.Metal(vec.Make(0.5*(1+rand.Float32()), 0.5*(1+rand.Float32()), 0.5*(1+rand.Float32())), 0.5*rand.Float32())
 					list.Add(geo.MakeSphere(center, 0.2, metalFun))
