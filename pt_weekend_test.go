@@ -3,5 +3,5 @@ package main
 import "testing"
 
 func BenchmarkRenderScene(b *testing.B) {
-	renderScene("benching.ppm")
+	renderScene("benching.png")
 }

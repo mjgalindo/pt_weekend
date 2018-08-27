@@ -19,13 +19,13 @@ import (
 	"github.com/mjgalindo/pt_weekend/vec"
 )
 
-func ColorAt(r ray.Ray, world geo.Hitable, depth int) vec.Vec3 {
+func colorAt(r ray.Ray, world geo.Hitable, depth int) vec.Vec3 {
 	var rec geo.HitRecord
 	if world.Hit(r, 0.001, math.MaxFloat32, &rec) {
 		if depth < 50 {
 			absorbed, attenuation, scattered := rec.Scatter(r, rec)
 			if !absorbed {
-				return vec.Mul(attenuation, ColorAt(scattered, world, depth+1))
+				return vec.Mul(attenuation, colorAt(scattered, world, depth+1))
 			}
 			return vec.Make(0, 0, 0)
 		}
@@ -36,7 +36,7 @@ func ColorAt(r ray.Ray, world geo.Hitable, depth int) vec.Vec3 {
 		vec.MulSingle(vec.Make(0.5, 0.7, 1.0), t))
 }
 
-func Save(imbuff *[][]vec.Vec3, name string) {
+func save(imbuff *[][]vec.Vec3, name string) {
 	f, err := os.Create(name)
 	if err != nil {
 		panic(err)
@@ -49,7 +49,7 @@ func Save(imbuff *[][]vec.Vec3, name string) {
 			ir := uint8(255.99 * (*imbuff)[y][x].R())
 			ig := uint8(255.99 * (*imbuff)[y][x].G())
 			ib := uint8(255.99 * (*imbuff)[y][x].B())
-			pngImage.SetRGBA(x, height-y, color.RGBA{R: ir, G: ig, B: ib, A: 255})
+			pngImage.SetRGBA(x, height-1-y, color.RGBA{R: ir, G: ig, B: ib, A: 255})
 		}
 	}
 	encoder := png.Encoder{}
@@ -58,24 +58,28 @@ func Save(imbuff *[][]vec.Vec3, name string) {
 
 func renderScene(outfile string) {
 	rand.Seed(int64(time.Now().Nanosecond()))
-	width := 800
-	height := 400
+	width := 1600
+	height := 800
 
 	// Setup the scene
 	world := randomScene()
-	lookFrom := vec.Make(13, 2, 3)
+	lookFrom := vec.Make(13, 3.5, 3)
 	lookAt := vec.Make(0, 0, 0)
-	distToFocus := float32(10.0)
+	distToFocus := float32(1.0)
 	aperture := float32(0.0)
 	camera := cam.Make(lookFrom, lookAt, vec.Make(0, 1, 0),
 		20, float32(width)/float32(height), aperture, distToFocus, 0.0, 1.0)
-	nSamples := 64
+	nSamples := 128
+
+	// Initialize a 2D matrix of Vec3 to store the radiance at each pixel
+	// Could be int8 directly but we may want to do something with the extra
+	// precision (?)
 	image := make([][]vec.Vec3, height)
 	for i := range image {
 		image[i] = make([]vec.Vec3, width)
 	}
 
-	renderWorker := func(workQueue chan int, finish chan bool) {
+	worker := func(workQueue chan int, finish chan bool) {
 		mustEnd := false
 		for !mustEnd {
 			select {
@@ -86,7 +90,7 @@ func renderScene(outfile string) {
 						u := (float32(x) + rand.Float32()) / float32(width)
 						v := (float32(row) + rand.Float32()) / float32(height)
 						ray := camera.GetRay(u, v)
-						image[row][x] = vec.Sum(image[row][x], ColorAt(ray, world, 0))
+						image[row][x] = vec.Sum(image[row][x], colorAt(ray, world, 0))
 					}
 					image[row][x] = vec.DivSingle(image[row][x], float32(nSamples))
 					image[row][x] = vec.Make(float32(math.Sqrt(float64(image[row][x].X()))),
@@ -103,21 +107,31 @@ func renderScene(outfile string) {
 	finish := make(chan bool)
 	nWorkers := 4
 	for i := 0; i < nWorkers; i++ {
-		go renderWorker(workQueue, finish)
+		go worker(workQueue, finish)
 	}
 	bar := pb.StartNew(height)
-	defer bar.FinishPrint("Done!")
+	// Create a random order for rendering the rows to share the
+	// most complicated rows 'equally'
+	rowList := make([]int, height)
+	for i := range rowList {
+		rowList[i] = i
+	}
+	rand.Shuffle(height, func(i, j int) {
+		rowList[i], rowList[j] = rowList[j], rowList[i]
+	})
+	// Give jobs to the workers (row indices to render)
 	for y := height - 1; y >= 0; y-- {
 		select {
-		case workQueue <- y:
+		case workQueue <- rowList[y]:
 			bar.Increment()
 		}
 	}
+	// Stop all workers
 	for i := 0; i < nWorkers; i++ {
 		finish <- true
 	}
 
-	Save(&image, outfile)
+	save(&image, outfile)
 }
 func main() {
 	if len(os.Args) < 2 {
@@ -129,15 +143,15 @@ func main() {
 
 func randomScene() geo.Hitable {
 	list := geo.MakeList()
-	list.Add(geo.MakeSphere(vec.Make(0, -1000, 0), 1000, mat.Lambertian(vec.Make(0.5, 0.5, 0.5))))
-	for a := -10; a < 10; a++ {
-		for b := -10; b < 10; b++ {
+	list.Add(geo.MakeSphere(vec.Make(0, -10000, 0), 10000, mat.Lambertian(vec.Make(0.5, 0.5, 0.5))))
+	for a := -100; a < 100; a++ {
+		for b := -100; b < 100; b++ {
 			chooseMat := rand.Float32()
 			center := vec.Make(float32(a)+0.9*rand.Float32(), 0.2, float32(b)+0.9*rand.Float32())
 			if vec.Sub(center, vec.Make(4, 0.2, 0)).Length() > 0.9 {
 				if chooseMat < 0.8 { // Diffuse
 					albedo := vec.Make(rand.Float32()*rand.Float32(), rand.Float32()*rand.Float32(), rand.Float32()*rand.Float32())
-					list.Add(geo.MakeMovingSphere(center, vec.Sum(center, vec.Make(0, 0.5*rand.Float32(), 0)), 0.2, 0.0, 1.0, mat.Lambertian(albedo)))
+					list.Add(geo.MakeMovingSphere(center, vec.Sum(center, vec.Make(0, 0.2*rand.Float32(), 0)), 0.2, 0.0, 1.0, mat.Lambertian(albedo)))
 				} else if chooseMat < 0.95 { // Metal
 					metalFun := mat.Metal(vec.Make(0.5*(1+rand.Float32()), 0.5*(1+rand.Float32()), 0.5*(1+rand.Float32())), 0.5*rand.Float32())
 					list.Add(geo.MakeSphere(center, 0.2, metalFun))
