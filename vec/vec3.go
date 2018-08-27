@@ -42,6 +42,10 @@ func (v Vec3) B() float32 {
 	return v.e[2]
 }
 
+func (v Vec3) I(i int) float32 {
+	return v.e[i]
+}
+
 func (v Vec3) RGB() (float32, float32, float32) {
 	return v.e[0], v.e[1], v.e[2]
 }
@@ -130,6 +134,36 @@ func Refract(v, n Vec3, niOverNt float32) (refracted *Vec3) {
 		refracted = &tmp
 	}
 	return
+}
+
+func min(a, b float32) float32 {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func Min(a Vec3, bs ...Vec3) Vec3 {
+	x, y, z := a.XYZ()
+	for _, b := range bs {
+		x, y, z = min(x, b.X()), min(y, b.Y()), min(z, b.Z())
+	}
+	return Vec3{e: [3]float32{x, y, z}}
+}
+
+func max(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func Max(a Vec3, bs ...Vec3) Vec3 {
+	x, y, z := a.XYZ()
+	for _, b := range bs {
+		x, y, z = max(x, b.X()), max(y, b.Y()), max(z, b.Z())
+	}
+	return Vec3{e: [3]float32{x, y, z}}
 }
 
 func (v Vec3) String() string {

@@ -56,8 +56,8 @@ func Save(imbuff *[][]vec.Vec3, name string) {
 }
 
 func renderScene(outfile string) {
-	width := 800 / 4
-	height := 400 / 4
+	width := 800
+	height := 400
 
 	// Setup the scene
 	world := randomScene()
@@ -99,7 +99,7 @@ func renderScene(outfile string) {
 
 	workQueue := make(chan int)
 	finish := make(chan bool)
-	nWorkers := 4
+	nWorkers := 8
 	for i := 0; i < nWorkers; i++ {
 		go renderWorker(workQueue, finish)
 	}
@@ -125,7 +125,7 @@ func main() {
 	renderScene(os.Args[1])
 }
 
-func randomScene() *geo.HitableList {
+func randomScene() geo.Hitable {
 	list := geo.MakeList()
 	list.Add(geo.MakeSphere(vec.Make(0, -1000, 0), 1000, mat.Lambertian(vec.Make(0.5, 0.5, 0.5))))
 	for a := -11; a < 11; a++ {
@@ -148,5 +148,5 @@ func randomScene() *geo.HitableList {
 	list.Add(geo.MakeSphere(vec.Make(0, 1, 0), 1.0, mat.Dielectric(1.5)))
 	list.Add(geo.MakeSphere(vec.Make(-2, 1, 0), 1.0, mat.Lambertian(vec.Make(0.4, 0.2, 0.1))))
 	list.Add(geo.MakeSphere(vec.Make(2, 1, 0), 1.0, mat.Metal(vec.Make(0.7, 0.6, 0.5), 0.0)))
-	return &list
+	return geo.ConstructBVH(list.Hitables)
 }
