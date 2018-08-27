@@ -66,3 +66,14 @@ func (s Sphere) Hit(r ray.Ray, tMin, tMax float32, rec *HitRecord) bool {
 	}
 	return false
 }
+
+func (s Sphere) BoundingBox(t0, t1 float32) (bool, AABB) {
+	rVec := vec.Make(s.Radius, s.Radius, s.Radius)
+	min0 := vec.Sub(s.Position, rVec)
+	max0 := vec.Sum(s.Position, rVec)
+	min1 := vec.Sub(s.LastPosition, rVec)
+	max1 := vec.Sum(s.LastPosition, rVec)
+	return true, AABB{
+		Min: vec.Min(min0, min1),
+		Max: vec.Max(max0, max1)}
+}

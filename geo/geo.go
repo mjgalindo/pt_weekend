@@ -21,4 +21,5 @@ func (hr *HitRecord) Update(res HitRecord) {
 type Hitable interface {
 	// Hit fills the hit result and returns true when hit
 	Hit(r ray.Ray, tMin, tMax float32, rec *HitRecord) bool
+	BoundingBox(t0, t1 float32) (bool, AABB)
 }
